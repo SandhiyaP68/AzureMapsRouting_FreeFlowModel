@@ -13,7 +13,7 @@ app = Flask(__name__)
 app.secret_key = '8888'  # Replace with a secure secret key
 
 # Initialize Firebase instead of MySQL
-cred = credentials.Certificate("config/serviceAccountKey.json")  # path to your downloaded JSON
+cred = credentials.Certificate("/etc/secrets/serviceAccountKey.json")  # path to your downloaded JSON
 firebase_admin.initialize_app(cred)
 
 db = firestore.client()
