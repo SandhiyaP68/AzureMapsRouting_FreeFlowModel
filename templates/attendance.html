@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attendance Map</title>
+    
+    <!-- Azure Maps SDK -->
+    <link rel="stylesheet" href="https://atlas.microsoft.com/sdk/javascript/mapcontrol/2/atlas.min.css">
+    <script src="https://atlas.microsoft.com/sdk/javascript/mapcontrol/2/atlas.min.js"></script>
+    <!-- Bootstrap for styling -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        html, body {
+            width: 100%;
+            height: 100%;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            overflow: hidden;
+        }
+
+        #mapContainer {
+            width: 100%;
+            height: 100%;
+            transition: width 0.3s; /* Smooth transition for width change */
+        }
+
+        /* Sidebar styles */
+        #sidebar {
+            position: fixed;
+            top: 0;
+            left: -300px; /* Hide sidebar initially */
+            width: 300px;
+            height: 100%;
+            background-color: #f8f9fa;
+            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.5);
+            transition: none
+            z-index: 1000;
+            overflow-y: auto; /* Enables vertical scrolling */
+        }
+
+        /* #sidebar img {
+            display: block;
+            margin: 40px auto;
+        } */
+
+        #sidebar a {
+            display: block;
+            padding: 15px;
+            text-decoration: none;
+            color: #333;
+            font-family: 'Roboto', sans-serif;
+            font-weight: 500;
+            font-size: 16px;
+            background-color: #f4f4f4;
+            transition: all 0.05s linear;
+            margin-bottom: 8px;
+            border-radius: 4px; 
+        }
+
+        #sidebar a:hover {
+            background-color: #007bff;
+            color: #fff;
+            transform: scale(1.05);
+            box-shadow: 0px 4px 10px rgba(0, 123, 255, 0.3); 
+        }
+
+        #sidebar a:hover i {
+            color: #fff;
+        }
+
+        #sidebar a i {
+            margin-right: 8px;
+            font-size: 18px; 
+            transition: color 0.3s ease;
+        }
+
+        /* Hamburger icon styles */
+        #hamburger {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            z-index: 2000;
+            cursor: pointer;
+        }
+
+        /* Accordion and form styling */
+        .accordion {
+            background-color: #f1f1f1;
+            color: #333;
+            cursor: pointer;
+            padding: 12px;
+            width: 100%;
+            border: 1px solid #ccc;
+            text-align: left;
+            font-size: 16px;
+            font-family: 'Roboto', sans-serif;
+            margin-bottom: 5px;
+            border-left: 5px solid #007bff;
+            transition: background-color 0.3s ease, border-left-color 0.3s ease; 
+        }
+
+        .accordion:hover {
+            background-color: #e0e0e0;
+            border-left-color: #0056b3;
+        }
+
+        .accordion-content {
+            padding: 15px;
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+        }
+        .accordion i {
+            margin-left: 80px; /* Adjust as needed */ 
+        }
+
+        /* Custom marker style to resemble a more Google Maps-like pointer */
+        .custom-marker {
+            width: 24px;
+            height: 24px;
+            background-color: #4285f4;
+            border-radius: 50%;
+            position: relative;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .custom-marker::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 10px solid #4285f4;
+        }
+
+        .custom-marker.green {
+            background-color: #34a853;
+        }
+
+        .custom-marker.green::after {
+            border-top-color: #34a853;
+        }
+
+        .custom-marker.red {
+            background-color: #ea4335;
+        }
+
+        .custom-marker.red::after {
+            border-top-color: #ea4335;
+        } 
+
+        /* Popup content */
+        .popup-content {
+            display: none;
+            position: absolute;
+            background-color: white;
+            border: 1px solid #ccc;
+            padding: 10px;
+            border-radius: 5px;
+            top: -70px;
+            left: -60px;
+            width: 150px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            z-index: 1;
+        }
+
+        .marker-container:hover .popup-content {
+            display: block;
+        }
+
+        /* Zoom control positioned at top-right */
+        .azm-zoom-control {
+            position: absolute !important;
+            top: 10px;
+            right: 10px;
+        }
+        /* Filter Button */
+        .date-filter-form button {
+            padding: 11px 15px;
+            color: #fff;
+            background: linear-gradient(90deg, #007bff, #0056b3);
+            border: none;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 500;
+            cursor: pointer;
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+        }
+
+        .date-filter-form button:hover {
+            background: linear-gradient(90deg, #0056b3, #004080);
+            box-shadow: 0 5px 12px rgba(0, 0, 0, 0.25);
+            transform: translateY(-2px); 
+
+        }  
+
+        .date-filter-form {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+            font-family: 'Roboto', sans-serif;
+            /* widh: 10px; */
+            flex-direction: row;
+            font-size: 14px;
+        }
+ 
+        .date-filter-form input[type="date"] {
+            padding: 8px 8px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 13px;
+            transition: all 0.3s ease;
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
+            color: #555;
+            background-color: #fff;
+            width: 42%;
+            transition: border-color 0.3s ease;
+        }
+
+        input[type="date"]:hover,input[type="date"]:focus{
+            border-color: #ffcc33;
+        }
+
+        
+
+        /* Table Styles */  
+        .info-table {
+            width: 100%;
+           border-collapse: collapse;
+        } 
+
+
+
+        .info-table td { 
+            padding: 10px;
+            font-size: 1em;
+            color: #333;
+    }
+
+
+
+        .info-table tr:nth-child(odd)
+        {
+        background-color: #e6f7ff;
+    }
+
+        .info-table tr:nth-child(even) {
+        background-color: #ffffff;
+    }
+
+    .nav-links {
+            flex-grow: 1;
+        }
+
+    .bottom-container {
+            position: absolute;
+            bottom: 10px;
+            width: 100%;
+            padding: 0 15px;
+        }
+
+        .login-link, .profile-info {
+            width: 100%;
+        }
+        /* Punch Button Base Style */
+#punchButton {
+    padding: 11px 15px;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    width: 100%;
+    margin-top: 10px;
+}
+
+/* Punch In (Green Gradient) */
+#punchButton.punch-in {
+    background: linear-gradient(90deg, #28a745, #218838);
+}
+
+/* Punch Out (Red Gradient) */
+#punchButton.punch-out {
+    background: linear-gradient(90deg, #dc3545, #a71d2a);
+}
+
+/* Hover Effect */
+#punchButton:hover {
+    box-shadow: 0 5px 12px rgba(0, 0, 0, 0.25);
+    transform: translateY(-2px);
+}
+
+    </style>
+</head>
+<body onload="initializeMap()">
+    <!-- Hamburger icon -->
+    <div id="hamburger" onclick="toggleSidebar()">
+        <button id="hamburgerButton" class="btn btn-primary">☰</button>
+    </div>
+    <div id="mapContainer"></div>
+    <div id="sidebar">
+        <!-- Close button inside sidebar -->
+        <button onclick="toggleSidebar()" class="btn btn-danger close-btn" style="position: absolute; top: 15px; right: 15px;">X</button>
+
+        <img src="https://hrms.gain-hub.com/web/static/img/odoo_logo_tiny.png" alt="Logo Placeholder" style="width: 212px;
+        height: 90px;
+        padding: 11px;
+        margin-left: 4px;margin-top: -5px;">
+        <!-- <a href="/"><i class="fas fa-home"></i>Home</a> -->
+        <a href="/visit"><i class="fas fa-map-marker-alt"></i> Visit</a>
+        <a href="/attendance"><i class="fas fa-calendar-check"></i> Attendance</a>
+        <h3>
+            <button class="accordion" onclick="toggleAccordion('visitDataContent')">Employee Attendance<i class="fas fa-chevron-down"></i></button>
+        </h3>
+
+        <div class="accordion-content" id="visitDataContent" style="display: block;">
+            <!-- Date filter form -->
+            <form method="POST" action="/attendance" class="date-filter-form">
+                <label for="date">Select Date:</label>
+                <input type="date" id="date" name="date" value="{{ selected_date }}">
+                <button type="submit" class="filter-btn">Search</button>
+            </form>
+            <table class="info-table">
+                <tbody>
+                <tr>
+                    <td><strong>Total Employees:</strong></td><td>{{ side_screen_data.total_employees }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Punch In:</strong></td><td>{{ side_screen_data.checked_in_employees }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Punch Out:</strong></td><td>{{ side_screen_data.checked_out_employees }}</td>
+                </tr>
+            </tbody>
+            </table><br><br>
+            <form id="punchForm" action="{{ url_for('toggle_punch') }}" method="post">
+  <input type="hidden" name="lat">
+  <input type="hidden" name="lon">
+  <button type="button"
+          id="punchButton"
+          class="{% if status == 'IN' %}punch-out{% else %}punch-in{% endif %}"
+          onclick="getLocationAndSubmit('punchForm')">
+    {% if status == 'IN' %}Punch Out{% else %}Punch In{% endif %}
+  </button>
+</form>
+
+            </div>
+       <!-- Profile Info and Logout without checking login status -->
+        <div class="bottom-container">
+            <div class="profile-info">
+                <button onclick="logout()" class="btn btn-danger btn-block">Logout</button>
+            </div>
+        </div>
+
+    </div>  
+
+    <script>
+       var map;
+        function initializeMap() {
+            map = new atlas.Map('mapContainer', {
+                center: [78.9629, 20.5937], // Center of India
+                zoom: 5,
+                view: 'Auto',
+                authOptions: {
+                    authType: 'subscriptionKey',
+                    subscriptionKey: '29tQsOgaggLiWIY5lVfJ9pQ4MabgWEyAIcJSNCrUfEP1f33W6NDjJQQJ99AGACYeBjFd4FboAAAgAZMPZYdR'
+                },
+                showLogo: false, // Hides the Azure Maps logo
+                showFeedbackLink: false // Hides the feedback link
+            });
+
+            map.events.add('ready', function () {
+                // Add controls
+                map.controls.add(new atlas.control.ZoomControl(), {
+                    position: 'bottom-right'
+                });
+
+                // Add custom markers for check-in points
+                {% for point in check_in_pointers %}
+                    var checkInMarker = new atlas.HtmlMarker({
+                        position: [{{ point.longitude }}, {{ point.latitude }}],
+                        htmlContent: `
+                            <div class="marker-container">
+                                <div class="custom-marker green"></div>
+                                <div class="popup-content">
+                                    <strong>Employee:</strong> {{ point.employee_name }}<br>
+                                    <strong>Place:</strong> {{ point.place_name }}<br>
+                                    <strong>Punch In:</strong> {{ point.time }}
+                                </div>
+                            </div>
+                        `
+                    });
+                    map.markers.add(checkInMarker);
+                {% endfor %}
+
+                // Add custom markers for check-out points
+                {% for point in check_out_pointers %}
+                    var checkOutMarker = new atlas.HtmlMarker({
+                        position: [{{ point.longitude }}, {{ point.latitude }}],
+                        htmlContent: `
+                            <div class="marker-container">
+                                <div class="custom-marker"></div>
+                                <div class="popup-content">
+                                    <strong>Employee:</strong> {{ point.employee_name }}<br>
+                                    <strong>Place:</strong> {{ point.place_name }}<br>
+                                    <strong>Punch Out:</strong> {{ point.time }}
+                                </div>
+                            </div>
+                        `
+                    });
+                    map.markers.add(checkOutMarker);
+                {% endfor %}
+            });
+        }
+
+        function toggleSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const hamburger = document.getElementById('hamburger');
+        
+        if (sidebar.style.left === '0px') {
+            sidebar.style.left = '-300px';
+            hamburgerButton.innerHTML = '☰'; // Show hamburger icon
+            hamburger.style.display = 'block';
+        } else {
+            sidebar.style.left = '0px';
+            hamburger.style.display = 'none';
+        }
+    }
+
+        function toggleAccordion(contentId) {
+            const content = document.getElementById(contentId);
+            content.style.display = content.style.display === 'block' ? 'none' : 'block';
+        }
+
+    
+
+        function logout() {
+            fetch('/logout', { method: 'POST', credentials: 'include' })
+                .then(response => {
+                    if (response.ok) {
+                        window.location.href = '/login';
+                    }
+                })
+                .catch(error => console.error('Logout error:', error));
+        }
+
+        async function getLocationAndSubmit(formId) {
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(async function(position) {
+            const lat = position.coords.latitude;
+            const lon = position.coords.longitude;
+
+            // Fill hidden inputs with lat/lon
+            document.querySelector(`#${formId} input[name="lat"]`).value = lat;
+            document.querySelector(`#${formId} input[name="lon"]`).value = lon;
+
+            // Reverse geocode to get place name
+            const subscriptionKey = "{{ subscription_key }}"; 
+            const url = `https://atlas.microsoft.com/search/address/reverse/json?api-version=1.0&subscription-key=${subscriptionKey}&query=${lat},${lon}`;
+
+            let placeName = "Unknown Location";
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                if (data.addresses && data.addresses.length > 0) {
+                    placeName = data.addresses[0].address.freeformAddress;
+                }
+            } catch (err) {
+                console.error("Reverse geocode failed", err);
+            }
+
+            // Add place name hidden input
+            let placeInput = document.querySelector(`#${formId} input[name="place_name"]`);
+            if (!placeInput) {
+                placeInput = document.createElement("input");
+                placeInput.type = "hidden";
+                placeInput.name = "place_name";
+                document.getElementById(formId).appendChild(placeInput);
+            }
+            placeInput.value = placeName;
+
+            // Add current time hidden input
+            let timeInput = document.querySelector(`#${formId} input[name="time"]`);
+            if (!timeInput) {
+                timeInput = document.createElement("input");
+                timeInput.type = "hidden";
+                timeInput.name = "time";
+                document.getElementById(formId).appendChild(timeInput);
+            }
+            timeInput.value = new Date().toISOString(); // capture current time
+
+            // Submit the form
+            document.getElementById(formId).submit();
+        }, function(error) {
+            alert("Unable to fetch location: " + error.message);
+        });
+    } else {
+        alert("Geolocation not supported.");
+    }
+}
+
+
+  
+
+
+   
+        
+
+    
+
+
+    </script>
+</body>
+</html>

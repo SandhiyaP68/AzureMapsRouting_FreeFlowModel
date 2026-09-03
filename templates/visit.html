@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visit Map with Routing</title>
+
+    <!-- Azure Maps SDK -->
+    <link rel="stylesheet" href="https://atlas.microsoft.com/sdk/javascript/mapcontrol/3/atlas.min.css">
+    <script src="https://atlas.microsoft.com/sdk/javascript/mapcontrol/3/atlas.min.js"></script>
+    <!-- Bootstrap for styling -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"> 
+    <style>
+        html, body {
+            width: 100%;
+            height: 100%;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            overflow: hidden;
+        }
+
+        #mapContainer {
+            width: 100%; /* Full width by default */
+            height: 100%;
+            transition: width 0.3s; /* Smooth transition for width change */
+        }
+
+        /* Sidebar styles */
+        #sidebar {
+            position: fixed;
+            top: 0;
+            left: -300px; /* Hide sidebar initially */
+            width: 300px;
+            height: 100%;
+            background-color: #f8f9fa;
+            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.5);
+            transition: left 0.3s ease;
+            z-index: 1000;
+            overflow-y: auto; /* Enables vertical scrolling */
+        }
+
+        /* #sidebar img {
+            display: block;
+            margin: 40px auto;
+        } */
+
+        #sidebar a {
+            display: block;
+            padding: 15px;
+            text-decoration: none;
+            color: #333;
+            font-family: 'Roboto', sans-serif;
+            font-weight: 500;
+            font-size: 16px;
+            background-color: #f4f4f4;
+            transition: background-color 0.3s ease, color 0.3s ease, transform 0.3s ease;
+            margin-bottom: 8px;
+            border-radius: 4px; 
+        }
+
+        #sidebar a:hover {
+            background-color: #007bff;
+            color: #fff;
+            transform: scale(1.05);
+            box-shadow: 0px 4px 10px rgba(0, 123, 255, 0.3); 
+        }
+        #sidebar a:hover i {
+            color: #fff;
+        }
+
+        #sidebar a i {
+            margin-right: 8px;
+            font-size: 18px; 
+            transition: color 0.3s ease;
+        }
+
+        /* Marker and Popup styling */
+        .marker-container {
+            position: relative;
+            display: inline-block;
+        }
+
+        .green-marker, .red-marker {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .green-marker {
+            background-color: green;
+        }
+
+        .red-marker {
+            background-color: red;
+        }
+
+        .popup-content {
+            display: none;
+            position: absolute;
+            background-color: white;
+            border: 1px solid #ccc;
+            padding: 10px;
+            border-radius: 5px;
+            top: -70px;
+            left: -50px;
+            width: 180px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            z-index: 1;
+        }
+
+        .marker-container:hover .popup-content {
+            display: block;
+        }
+
+        /* Accordion and form styling */
+        .accordion {
+            background-color: #f1f1f1;
+            color: #333;
+            cursor: pointer;
+            padding: 12px;
+            width: 100%;
+            border: 1px solid #ccc;
+            text-align: left;
+            font-size: 16px;
+            font-family: 'Roboto', sans-serif;
+            margin-bottom: 5px;
+            border-left: 5px solid #007bff;
+            transition: background-color 0.3s ease, border-left-color 0.3s ease; 
+        }
+
+        .accordion:hover {
+            background-color: #e0e0e0;
+            border-left-color: #0056b3;
+        }
+
+        .accordion-content {
+            padding: 15px;
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+        }
+        .accordion i {
+            margin-left: 177px; /* Adjust as needed */ 
+        }
+
+        /* Hamburger icon styles */
+        #hamburger {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            z-index: 2000;
+            cursor: pointer;
+        }
+
+        /* Zoom control positioned at top-right */
+        .azm-zoom-control {
+            position: absolute !important;
+            top: 10px;
+            right: 10px;
+        }
+        /* Filter Button */
+        .date-filter-form button {
+            padding: 11px 15px;
+            color: #fff;
+            background: linear-gradient(90deg, #007bff, #0056b3);
+            border: none;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 500;
+            cursor: pointer;
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+        }
+
+        .date-filter-form button:hover {
+            background: linear-gradient(90deg, #0056b3, #004080);
+            box-shadow: 0 5px 12px rgba(0, 0, 0, 0.25);
+            transform: translateY(-2px); 
+
+        }
+
+        .date-filter-form {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+            font-family: 'Roboto', sans-serif;
+            /* widh: 10px; */
+            flex-direction: row;
+            font-size: 14px;
+        }
+ 
+        .date-filter-form input[type="date"] {
+            padding: 8px 8px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 13px;
+            transition: all 0.3s ease;
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
+            color: #555;
+            background-color: #fff;
+            width: 42%;
+            transition: border-color 0.3s ease;
+        }
+        input[type="date"]:hover,input[type="date"]:focus
+        {
+            border-color: #ffcc33;
+        }
+
+        /* Table Styles */ 
+        .info-table{
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .info-table td {
+            padding: 10px;
+            font-size: 1em;
+            color: #333;
+        }
+        .info-table tr:nth-child(odd) {
+            background-color: #e6f7ff;
+        }
+
+        .info-table tr:nth-child(even) {
+            background-color: #ffffff;
+        } 
+        .nav-links {
+            flex-grow: 1;
+        }
+
+        .bottom-container {
+            position: absolute;
+            bottom: 10px;
+            width: 100%;
+            padding: 0 15px;
+        }
+
+        .login-link, .profile-info {
+            width: 100%;
+        }
+    </style>
+</head>
+<body onload="GetMap()">
+    <div id="hamburger" onclick="toggleSidebar()">
+        <button id="hamburgerButton" class="btn btn-primary">☰</button>
+    </div>
+
+    <div id="mapContainer"></div>
+
+    <!-- Sidebar with GainHub logo -->
+    <div id="sidebar" style="right: 0px;">
+
+        <!-- Close button inside sidebar -->
+        <button onclick="toggleSidebar()" class="btn btn-danger close-btn" style="position: absolute; top: 15px; right: 15px;">X</button>
+
+        <img src="https://hrms.gain-hub.com/web/static/img/odoo_logo_tiny.png" alt="Logo Placeholder" style="width: 212px;
+        height: 90px;
+        padding: 11px;
+        margin-left: 4px;margin-top: -5px;">
+        <!-- <a href="/"><i class="fas fa-home"></i>Home</a> -->
+        <a href="/visit"><i class="fas fa-map-marker-alt"></i> Visit</a>
+        <a href="/attendance"><i class="fas fa-calendar-check"></i> Attendance</a>
+        <h3>
+            <button class="accordion" onclick="toggleAccordion('visitDataContent')">Visit Data<i class="fas fa-chevron-down"></i></button>
+        </h3>
+        <div class="accordion-content" id="visitDataContent" style="display: block;">
+            <!-- Date filter form -->
+            <form method="POST" action="/visit" class="date-filter-form">
+                <label for="date">Select Date:</label>
+                <input type="date" id="date" name="date" value="{{ selected_date }}">
+                <button type="submit">Search</button>
+            </form>
+
+            <table class="info-table">
+                <tr>
+                    <td><strong>Total Visits:</strong></td>
+                    <td>{{ total_visits }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Active Visits:</strong></td>
+                    <td>{{ active_visits }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Completed Visits:</strong></td>
+                    <td>{{ completed_visits }}</td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- Profile Info and Logout without checking login status -->
+        <div class="bottom-container">
+            <div class="profile-info">
+                <button onclick="logout()" class="btn btn-danger btn-block">Logout</button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        var map, datasource;
+
+        function GetMap() {
+            map = new atlas.Map('mapContainer', {
+                center: [78.9629, 20.5937], // Center of India
+                zoom: 5,
+                view: 'Auto',
+                authOptions: {
+                    authType: 'subscriptionKey',
+                    subscriptionKey: '29tQsOgaggLiWIY5lVfJ9pQ4MabgWEyAIcJSNCrUfEP1f33W6NDjJQQJ99AGACYeBjFd4FboAAAgAZMPZYdR'
+                },
+                showLogo: false, // Hides the Azure Maps logo
+                showFeedbackLink: false // Hides the feedback link
+            });
+
+            map.events.add('ready', function () {
+                map.controls.add(new atlas.control.ZoomControl(), {
+                    position: 'bottom-right' // Zoom control in bottom-right corner
+                });
+
+                datasource = new atlas.source.DataSource();
+                map.sources.add(datasource);
+                map.layers.add(new atlas.layer.LineLayer(datasource, null, {
+                    strokeColor: 'blue',
+                    strokeWidth: 3
+                }));
+                // Loop through the visit points and add markers
+                {% for visit in visit_points %}
+                    // Start Point Marker
+                    var startMarker = new atlas.HtmlMarker({
+                        position: [{{ visit.start_longitude }}, {{ visit.start_latitude }}],
+                        htmlContent: `
+                            <div class="marker-container">
+                                <div class="green-marker"></div>
+                                <div class="popup-content">
+                                    <strong>Employee:</strong> {{ visit.employee_name }}<br>
+                                    <strong>Place:</strong> {{ visit.start_place_name }}<br>
+                                    <strong>State:</strong> Active<br>
+                                    <strong>Start Time:</strong> {{ visit.start_time }}
+                                </div>
+                            </div>
+                        `
+                    });
+                    map.markers.add(startMarker);
+
+                    // End Point Marker
+                    var endMarker = new atlas.HtmlMarker({
+                        position: [{{ visit.end_longitude }}, {{ visit.end_latitude }}],
+                        htmlContent: `
+                            <div class="marker-container">
+                                <div class="red-marker"></div>
+                                <div class="popup-content">
+                                    <strong>Employee:</strong> {{ visit.employee_name }}<br>
+                                    <strong>Place:</strong> {{ visit.end_place_name }}<br>
+                                    <strong>State:</strong> Completed<br>
+                                    <strong>End Time:</strong> {{ visit.end_time }}<br>
+                                    <strong>Distance:</strong> {{ visit.distance }} km
+                                </div>
+                            </div>
+                        `
+                    });
+                    map.markers.add(endMarker);
+
+                    // Call Azure Maps API to get the route between start and end points
+                    var url = `https://atlas.microsoft.com/route/directions/json?api-version=1.0&subscription-key=29tQsOgaggLiWIY5lVfJ9pQ4MabgWEyAIcJSNCrUfEP1f33W6NDjJQQJ99AGACYeBjFd4FboAAAgAZMPZYdR&query={{ visit.start_latitude }},{{ visit.start_longitude }}:{{ visit.end_latitude }},{{ visit.end_longitude }}&travelMode=car`;
+
+                    fetch(url)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.routes && data.routes.length > 0) {
+                                var route = data.routes[0];
+                                var routeCoordinates = route.legs[0].points.map(point => [point.longitude, point.latitude]);
+
+                                // Draw the actual route returned by Azure Maps
+                                datasource.add(new atlas.data.Feature(new atlas.data.LineString(routeCoordinates)));
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error fetching route data:', error);
+                        });
+                {% endfor %}
+            });
+        }
+
+        function toggleSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const hamburger = document.getElementById('hamburger');
+        
+        if (sidebar.style.left === '0px') {
+            sidebar.style.left = '-300px';
+            hamburgerButton.innerHTML = '☰'; // Show hamburger icon
+            hamburger.style.display = 'block';
+        } else {
+            sidebar.style.left = '0px';
+            hamburger.style.display = 'none';
+        }
+    }
+
+        function toggleAccordion(contentId) {
+            const content = document.getElementById(contentId);
+            content.style.display = content.style.display === 'block' ? 'none' : 'block';
+        }
+
+        function logout() {
+            fetch('/logout', { method: 'POST', credentials: 'include' })
+                .then(response => {
+                    if (response.ok) {
+                        window.location.href = '/login';
+                    }
+                })
+                .catch(error => console.error('Logout error:', error));
+        }
+
+    </script>
+</body>
+</html>
