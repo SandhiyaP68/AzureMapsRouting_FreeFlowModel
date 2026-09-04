@@ -1,3 +1,3 @@
-click to view :
+click to visit :
 
 https://map-x3ol.onrender.com
